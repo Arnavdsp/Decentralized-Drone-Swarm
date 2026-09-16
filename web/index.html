@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Decentralized Drone Swarm — Visual Simulator</title>
+<link rel="stylesheet" href="style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ---------------------------------------------------------- LEFT: controls -->
+  <div class="panel" id="left-panel">
+    <h1>Swarm Simulator</h1>
+    <div class="subtitle">Six decentralized drones · hexagonal cooperative lift.
+      Runs entirely against the existing <code>swarm_drone</code> control stack.</div>
+
+    <h2>Scenario</h2>
+    <label for="scenario-select">Choose a demo</label>
+    <select id="scenario-select">
+      <option value="A">A — Normal mission</option>
+      <option value="B">B — Wind disturbance</option>
+      <option value="C">C — Drone failure</option>
+      <option value="D">D — Overload (rejected)</option>
+      <option value="E">E — Formation disturbance</option>
+    </select>
+    <div class="subtitle" id="scenario-desc"></div>
+
+    <div id="scenario-params"></div>
+
+    <h2>Swarm parameters</h2>
+    <label>Formation radius (m)</label>
+    <input type="number" id="p-radius" value="2.0" step="0.1" />
+    <label>Payload mass (kg)</label>
+    <input type="number" id="p-payload" value="4.0" step="0.1" />
+    <div class="row">
+      <div>
+        <label>Tether length (m)</label>
+        <input type="number" id="p-tether" value="3.5" step="0.1" />
+      </div>
+      <div>
+        <label>Tether stiffness (N/m)</label>
+        <input type="number" id="p-stiffness" value="10.0" step="0.5" />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>k_formation</label>
+        <input type="number" id="p-kform" value="1.4" step="0.05" />
+      </div>
+      <div>
+        <label>k_consensus</label>
+        <input type="number" id="p-kcons" value="0.35" step="0.05" />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>k_integral</label>
+        <input type="number" id="p-kint" value="0.45" step="0.05" />
+      </div>
+      <div>
+        <label>k_damping</label>
+        <input type="number" id="p-kdamp" value="1.1" step="0.05" />
+      </div>
+    </div>
+
+    <label>Playback speed (&times; real time): <span id="speed-label">1.0</span></label>
+    <input type="range" id="speed-slider" min="0.25" max="8" step="0.25" value="1" />
+
+    <button id="run-btn">Run scenario</button>
+    <button id="stop-btn" class="secondary" disabled>Stop</button>
+    <div id="status-line">Connecting…</div>
+    <div id="summary-box"></div>
+  </div>
+
+  <!-- ---------------------------------------------------------- CENTER: 3D view -->
+  <div id="viewport">
+    <div id="canvas-holder"></div>
+    <div id="phase-banner">
+      <span class="phase-value" id="phase-value">idle</span>
+      <span class="t-value" id="t-value">t = 0.0s</span>
+    </div>
+    <div id="event-banner"></div>
+  </div>
+
+  <!-- ---------------------------------------------------------- RIGHT: overlays + telemetry -->
+  <div class="panel" id="right-panel">
+    <h2>Overlays</h2>
+    <label class="checkbox-row"><input type="checkbox" id="ov-comm" checked> Communication links</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-tethers" checked> Tethers</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-targets" checked> Target slots</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-center" checked> Formation center</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-accel"> Acceleration vectors</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-vel"> Velocity vectors</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-trail-drone"> Drone trajectories</label>
+    <label class="checkbox-row"><input type="checkbox" id="ov-trail-load"> Payload trajectory</label>
+
+    <h2>Mission metrics</h2>
+    <div class="metric-row"><span>Shape quality</span><span id="m-quality">–</span></div>
+    <div class="metric-row"><span>Formation RMSE</span><span id="m-rmse">–</span></div>
+    <div class="metric-row"><span>Min separation</span><span id="m-minsep">–</span></div>
+    <div class="metric-row"><span>Alt setpoint</span><span id="m-altsp">–</span></div>
+    <div class="metric-row"><span>Payload carried</span><span id="m-loadmass">–</span></div>
+    <div class="metric-row"><span>Wind</span><span id="m-wind">–</span></div>
+    <div class="metric-row"><span>Abort reason</span><span id="m-abort">–</span></div>
+
+    <h2>Drones (click to inspect)</h2>
+    <div id="drone-list"></div>
+  </div>
+
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
