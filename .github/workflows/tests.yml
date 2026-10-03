@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # The tests only need the swarm/geometry core and the sim_viz server;
+      # the vision stack (torch, ultralytics, insightface) is not imported by them.
+      - run: pip install numpy pytest websockets
+      - run: python -m pytest -q   # -m puts the repo root on sys.path so swarm_drone imports
