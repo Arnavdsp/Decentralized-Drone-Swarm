@@ -19,4 +19,4 @@ jobs:
       # The tests only need the swarm/geometry core and the sim_viz server;
       # the vision stack (torch, ultralytics, insightface) is not imported by them.
       - run: pip install numpy pytest websockets
-      - run: pytest -q
+      - run: python -m pytest -q   # -m puts the repo root on sys.path so swarm_drone imports
