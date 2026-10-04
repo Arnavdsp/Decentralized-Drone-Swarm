@@ -7,8 +7,10 @@ project started from, and the drone stack they grew into — six Raspberry
 Pi–based quadcopters that lift a load together in a hexagonal formation and
 search from the air with an RT-DETR vision pipeline.
 
-Each robot only talks to its neighbours and reacts to what it senses, and
-the group behaviour comes out of those local rules. The code combines
+Each drone broadcasts its telemetry over the mesh and reacts to what it
+senses. The formation's consensus term uses only its two ring neighbours,
+collision avoidance uses every drone's position, and the group behaviour comes
+out of those distributed rules. The code combines
 distributed algorithms, sensor-based navigation and real-time control.
 
 ---
