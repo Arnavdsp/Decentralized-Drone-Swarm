@@ -1,42 +1,37 @@
 # Swarm Technology Algorithms
 
-**Swarm Technology** is a field in robotics and artificial intelligence that
-models the **collective behavior of decentralized, self-organized systems**. This
+Swarm robotics studies groups of simple agents that coordinate without a
+central controller. This
 repository holds two things: the classical swarm-intelligence algorithms the
 project started from, and the drone stack they grew into — six Raspberry
 Pi–based quadcopters that lift a load together in a hexagonal formation and
 search from the air with an RT-DETR vision pipeline.
 
-Robots interact locally with one another and the environment, exhibiting
-**emergent intelligence** that mirrors natural swarms. The project merges
-**distributed algorithms**, **sensor-based navigation**, and **real-time
-control** to demonstrate how small simple agents achieve complex group
-behaviors.
+Each robot only talks to its neighbours and reacts to what it senses, and
+the group behaviour comes out of those local rules. The code combines
+distributed algorithms, sensor-based navigation and real-time control.
 
 ---
 
 ## What's here
 
-**1. Classical swarm-intelligence algorithms** — three foundational
-optimizers, each self-contained and runnable, implemented for clarity and
-educational value.
-
-**2. A six-drone cooperative lifting swarm** — the drones fly into a regular
-hexagon around a payload and lift it together on tethers, with distributed
-formation control, live load-share monitoring, and a mission state machine that
-aborts on real faults.
-
-**3. Aerial detection with wanted-person matching** — RT-DETR with custom
-Normalized Wasserstein Distance post-processing for tiny objects seen from
-altitude, feeding a face-matching stage that checks people against a watchlist
-and raises alerts across the whole swarm.
+1. Three classical swarm-intelligence optimizers (ACO, PSO, ABC). Each is one
+   runnable file, written to be read.
+2. A six-drone cooperative lift. The drones fly into a regular hexagon around a
+   payload and lift it together on tethers. Formation control is distributed,
+   load share is monitored live, and a mission state machine aborts on real
+   faults.
+3. Aerial detection with wanted-person matching. RT-DETR finds people, with
+   Normalized Wasserstein Distance post-processing for objects that are only a
+   few pixels across from altitude. A face-matching stage checks them against
+   a watchlist and broadcasts alerts to the whole swarm.
 
 ---
 
 ## Repository structure
 
 ```
-Swarm-Tech-Algo/
+decentralized-drone-swarm/
 ├── ant_colony_optimization.py       classical algorithms
 ├── particle_swarm_optimization.py
 ├── artificial_bee_colony.py
@@ -77,12 +72,12 @@ Swarm-Tech-Algo/
 ## Quick start
 
 ```bash
-git clone https://github.com/Arnavdsp/Swarm-Tech-Algo.git
-cd Swarm-Tech-Algo
+git clone https://github.com/Arnavdsp/decentralized-drone-swarm.git
+cd decentralized-drone-swarm
 pip install numpy                       # enough for the algorithms and the sim
 ```
 
-**Classical algorithms** — each script is self-contained:
+Classical algorithms (each script runs on its own):
 
 ```bash
 python ant_colony_optimization.py
@@ -90,7 +85,7 @@ python particle_swarm_optimization.py
 python artificial_bee_colony.py
 ```
 
-**Simulate the six-drone lift** — no hardware, no GPU:
+Simulate the six-drone lift (no hardware or GPU needed):
 
 ```bash
 pip install matplotlib
@@ -115,7 +110,7 @@ python scripts/run_sim.py --plot out/sim.png
   t= 41.50  landing    alt_sp= 0.00m  shape=0.32
 ```
 
-Try the failure paths — they are the interesting part:
+The failure paths are the more interesting runs:
 
 ```bash
 python scripts/run_sim.py --payload 9.0            # refused: beyond capacity
@@ -123,7 +118,7 @@ python scripts/run_sim.py --fail-drone 3 --fail-at 12   # aborts mid-lift
 python scripts/run_sim.py --wind 2.0               # aborts: can't hold formation
 ```
 
-**Run the tests:**
+Run the tests:
 
 ```bash
 pip install pytest && python -m pytest tests/ -q     # 96 passed
@@ -133,12 +128,12 @@ pip install pytest && python -m pytest tests/ -q     # 96 passed
 
 ## 1. Classical swarm intelligence
 
-- **Ant Colony Optimization (ACO)** — simulates ant foraging with artificial
-  pheromone trails to solve the Travelling Salesman Problem.
-- **Particle Swarm Optimization (PSO)** — models bird flocks and fish schools to
-  find optima in continuous search spaces.
-- **Artificial Bee Colony (ABC)** — mimics employed, onlooker and scout bees to
-  balance exploration against exploitation.
+- Ant Colony Optimization (ACO) solves the Travelling Salesman Problem with
+  artificial pheromone trails, the way ants mark paths to food.
+- Particle Swarm Optimization (PSO) searches continuous spaces by moving
+  particles toward their own best point and the swarm's, like a flock.
+- Artificial Bee Colony (ABC) splits the search between employed, onlooker and
+  scout bees to balance exploration against exploitation.
 
 ---
 
@@ -147,13 +142,13 @@ pip install pytest && python -m pytest tests/ -q     # 96 passed
 Six drones hold the vertices of a regular hexagon around the payload. Because
 the six tethers meet the load at six evenly spaced bearings, their horizontal
 components cancel by symmetry and each drone carries exactly one sixth of the
-weight — as long as the ring stays level and centred.
+weight, as long as the ring stays level and centred.
 
-**Slot assignment** is exact: with six drones there are only 720 possible
+Slot assignment is exact: with six drones there are only 720 possible
 assignments, so the one with minimum total travel is found by brute force. No
 scipy, no heuristic.
 
-**Control is decentralised.** Each drone computes its own command from its own
+Control is decentralised. Each drone computes its own command from its own
 state plus the two ring neighbours it can hear:
 
 ```
@@ -161,35 +156,33 @@ acc = k_f·(slot − pos)  +  k_c·Σ(neighbour error − own error)/|N|
     + k_i·∫error dt     +  avoidance  −  k_d·velocity
 ```
 
-There is no leader. The hexagon is a *virtual structure* — a centre, a yaw and a
-radius in shared config — so a drone that hears nobody still flies its slot
+There is no leader. The hexagon is a *virtual structure* (a centre, a yaw and a
+radius in shared config), so a drone that hears nobody still flies its slot
 correctly.
 
-Two things in that law are load-bearing and easy to get wrong:
+Two parts of that law are easy to get wrong:
 
-- **The consensus gain has a stability condition.** Set `k_consensus` to half
+- The consensus gain has a stability condition. Set `k_consensus` to half
   `k_formation` and the consensus term cancels the formation term *exactly* for
   the alternating mode (every other drone displaced the opposite way). The swarm
   then settles into a permanently mis-shaped hexagon with zero net command and
   no error indication. `HexFormation.stability_margin()` reports the margin and
   the constructor warns if it goes non-positive.
-- **The integral term is not optional.** A steady crosswind needs steady force
-  to oppose it, and a proportional law can only make force from error — so
-  without an integrator the swarm settles outside tolerance and stalls in
+- The integral term is needed. A steady crosswind needs steady force to
+  oppose it, and a proportional law can only make force from error, so without an integrator the swarm settles outside tolerance and stalls in
   `FORMING`.
 
-**Tether physics is modelled properly.** Each tether is a *unilateral* spring:
+Each tether is a *unilateral* spring:
 it pulls when stretched and does nothing when slack.
 `solve_load_equilibrium` bisects on the load's height until the tensions balance
-the weight. The consequence is real and worth internalising: with a
-near-inextensible line, **a couple of centimetres of altitude error puts nearly
+the weight. The practical consequence: with a near-inextensible line, **a couple of centimetres of altitude error puts nearly
 the whole payload on the highest drone**. That is why every practical rig puts a
-compliant element (bungee, spring, sprung winch) in each leg —
-`tether_stiffness_n_per_m` is that element, and
+compliant element (bungee, spring, sprung winch) in each leg.
+`tether_stiffness_n_per_m` models that element, and
 `LiftPlanner.imbalance_sensitivity()` tells you what altitude error your settings
 make the abort fire at.
 
-**The mission** runs `ARMING → TAKEOFF → FORMING → DESCEND → TENSIONING →
+The mission runs `ARMING → TAKEOFF → FORMING → DESCEND → TENSIONING →
 LIFTING → CRUISE → LOWERING → RELEASED → LANDING`, with `ABORT` reachable from
 anywhere. The climb is paced by the *lowest* drone rather than a clock; the
 imbalance abort waits for `imbalance_grace_s` so a gust does not drop a payload;
@@ -218,8 +211,8 @@ frame → RT-DETR → NWD rerank → NWD-NMS → person boxes
 ### Why NWD instead of IoU
 
 Aerial footage is full of objects a handful of pixels across. Shift a 6×6 box by
-three pixels and IoU collapses from 1.0 to about **0.14** — NMS thresholds
-become knife-edge and tracking breaks the moment boxes stop overlapping. NWD
+three pixels and IoU drops from 1.0 to about 0.14, so NMS thresholds become
+very sensitive and tracking breaks the moment boxes stop overlapping. NWD
 models each box as a 2-D Gaussian and compares distributions instead:
 
 ```
@@ -227,8 +220,8 @@ NWD(a,b) = exp( −W2(a,b) / C )
 W2(a,b)  = ‖centre_a − centre_b‖² + ‖half-extent_a − half-extent_b‖²
 ```
 
-Same three-pixel shift: **NWD ≈ 0.72**. It degrades smoothly with pixel error
-instead of falling off a cliff. `C` sets the scale in pixels — 12.8 matches the
+For the same three-pixel shift, NWD ≈ 0.72. It falls off gradually with pixel
+error instead of all at once. `C` sets the scale in pixels; 12.8 matches the
 VisDrone training runs.
 
 It is used in three places: suppression, density-aware confidence re-ranking (a
@@ -266,21 +259,21 @@ python scripts/run_video_pipeline.py video.mp4 \
     --db data/wanted_db.npz -o out/annotated.mp4 --drone-id 3
 ```
 
-Three design choices keep this from producing confident nonsense:
+Three choices keep it from making confident wrong matches:
 
-- **Voting, not per-frame matching.** One frame of a face at 40 px from 30 m up
+- Votes across frames instead of per-frame matching. One frame of a face at 40 px from 30 m up
   is not evidence. The tracker holds identity across frames, so opinions
   accumulate and only `votes_to_alert` agreeing frames raise anything.
-- **A margin gate, not just a threshold.** The best-scoring person must beat the
+- A margin gate on top of the threshold. The best-scoring person must beat the
   *runner-up* by `match_margin`. Two enrolled people who look alike produce two
   near-equal scores, and a near-tie is exactly where a system like this
-  misidentifies someone — so it reports nothing instead. `build_face_db.py`
+  misidentifies someone, so it reports nothing instead. `build_face_db.py`
   flags confusable enrolments up front.
-- **An auditable record.** Every alert goes to `data/alerts.jsonl` with its
+- An audit record. Every alert goes to `data/alerts.jsonl` with its
   score, vote count, crop sharpness and the drone's pose.
 
 A sighting is broadcast on the mesh, so all six drones and the ground station
-learn about it — not just the one that happened to be looking the right way.
+learn about it, not just the one that happened to be looking the right way.
 
 ### On the drone
 
